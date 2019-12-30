@@ -1,8 +1,10 @@
 server:
   port: 8085
-#cxf:
-#  path: /services
-#  servlet.init:
-#    service-list-path: /info
-#  jaxrs:
-#    component-scan: true
+cxf:
+  path: /services
+  servlet.init:
+    service-list-path: /info
+  jaxrs:
+    component-scan: true
+logging:
+  file: log/springboot.log
