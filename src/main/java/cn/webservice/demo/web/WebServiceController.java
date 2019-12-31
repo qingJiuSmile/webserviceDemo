@@ -2,10 +2,13 @@ package cn.webservice.demo.web;
 
 import cn.webservice.demo.entity.QrCode;
 import cn.webservice.demo.entity.User;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.apache.axis.Constants;
 import org.apache.axis.client.Call;
 import org.apache.axis.client.Service;
 import org.apache.axis.message.SOAPHeaderElement;
@@ -20,8 +23,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.ws.rs.POST;
 import javax.ws.rs.core.MediaType;
 import javax.xml.namespace.QName;
+import javax.xml.rpc.ParameterMode;
+import javax.xml.rpc.encoding.XMLType;
 import javax.xml.soap.SOAPElement;
 import javax.xml.soap.SOAPException;
 import java.util.*;
@@ -149,19 +155,15 @@ public class WebServiceController {
      * 获取axis请求形式的加密头
      * @return SOAPHeaderElement
      */
-/*
-    public SOAPHeaderElement getHoapHeader(){
-        Map<String,String> map = CacheKit.get("PageCache","signInfo");
-        if(map==null){
-            map = WebKit.getSignInfo();
-            CacheKit.put("PageCache","signInfo",map);
-        }
+    public SOAPHeaderElement getHoapHeader(Map<String,String> map){
+
+        //将签到获得的请求头等信息传入，并设置加密头
         int thirdType = Integer.valueOf(map.get("thirdType"));
         int secret1 = Integer.valueOf(map.get("secret1"));
         String secret2 = map.get("secret2");
 
-        //上面代码为从缓存中取到我们需求传递到认证头的数据 下面开始添加认证头
-        SOAPHeaderElement head = new SOAPHeaderElement(new QName("http://www.hzsun.com/","SecurityHeader"));
+        //开始添加认证头
+        SOAPHeaderElement head = new SOAPHeaderElement(new QName(map.get("targetNamespace"),"SecurityHeader"));
         try {
             SOAPElement a1 = head.addChildElement("ThirdType");
             a1.addTextNode(thirdType+"");
@@ -176,18 +178,21 @@ public class WebServiceController {
         } catch (SOAPException e) {
             e.printStackTrace();
         }
+        System.out.println("===============================");
+        System.out.println("getHoapHeader========="+head);
         return head;
     }
-*/
 
 
-    public static Map<String,String> getSignInfo(){
+    @PostMapping("/getSignInfo")
+    @ApiOperation(value = "测试请求")
+    public  Map<String,String> getSignInfo(String endpoint,String targetNamespace,String method,String code){
         Map<String,String> singInfoCache = new HashMap<String,String>();
+        //传入targetNamespace 方便复用
+        singInfoCache.put("targetNamespace",targetNamespace);
+        //传入endpoint
+        singInfoCache.put("endpoint",endpoint);
         try{
-            // 指出service所在URL
-            String endpoint = "http://xxx.xxx.xx.xx/ThirdWebservice.asmx";
-            String targetNamespace = "http://www.hzsun.com/";
-            String method="SignIn";
 
             // 创建一个服务(service)调用(call)
             Service service = new Service();
@@ -206,23 +211,151 @@ public class WebServiceController {
                 while (it.hasNext()){
                     Map.Entry<String,String> entry = (Map.Entry<String,String>) it.next();
                     Object key = entry.getKey();
-                    String parm = key.toString().replace("{http://www.hzsun.com/}", "");
+                    String parm = key.toString().replace("{"+targetNamespace+"}", "");
                     System.out.println("key:"+parm);
                     System.out.println("value:"+entry.getValue());
                     if("stanum".equalsIgnoreCase(parm)){
-                        singInfoCache.put("nStaNum",entry.getValue().toString());
+                        singInfoCache.put("nStaNum",entry.getValue());
                     }else if("thirdType".equalsIgnoreCase(parm)){
-                        singInfoCache.put("thirdType",entry.getValue().toString());
+                        singInfoCache.put("thirdType",entry.getValue());
                     }else if("secret1".equalsIgnoreCase(parm)){
-                        singInfoCache.put("secret1",entry.getValue().toString());
+                        singInfoCache.put("secret1",entry.getValue());
                     }else if("secret2".equalsIgnoreCase(parm)){
-                        singInfoCache.put("secret2",entry.getValue().toString());
+                        singInfoCache.put("secret2",entry.getValue());
                     }
                 }
             }
         }catch(Exception e){
             e.printStackTrace();
         }
+        getPerInfo(singInfoCache,code);
         return singInfoCache;
+    }
+
+
+
+    public void getPerInfo(Map<String,String> map,String code){
+
+        List<Map<String, Object>> dataList = new ArrayList<Map<String, Object>>();
+        try{
+            // 指出service所在URL
+            String method = "GetPerInfo";
+
+            // 创建一个服务(service)调用(call)
+            Service service = new Service();
+            Call call = (Call) service.createCall();// 通过service创建call对象
+            // 设置service所在URL
+            call.setTargetEndpointAddress(new java.net.URL(map.get("endpoint")));
+            call.setOperationName(new QName(map.get("targetNamespace"), method));
+            call.setUseSOAPAction(true);
+            call.setSOAPActionURI(map.get("targetNamespace")+method);
+            SOAPHeaderElement head = getHoapHeader(map);  //添加加密头验证加密因子
+            call.addHeader(head);
+
+            call.addParameter(new QName(map.get("targetNamespace"),"sQRCode"), Constants.XSD_STRING, ParameterMode.IN);
+
+            call.setReturnType(XMLType.XSD_STRING);
+            //请求对应接口 并加入请求参数
+            Object ret = call.invoke(new Object[] {code});
+            System.out.println("ret========="+ret);
+            Map out = call.getOutputParams();
+            System.out.println("out======"+out);
+
+       /*     if (out!=null) {
+                Iterator ite = out.values().iterator();
+                System.out.println("ite============="+ite);
+                while (ite.hasNext()) {
+                     //System.out.println("-------------"+(String)ite.next());
+                    //JSONObject jsonObject = JSONObject.fromObject((String)ite.next());
+                    JSONObject jsonObject = JSONObject.parseObject((String)ite.next());
+                    System.out.println("jsb===================="+jsonObject);
+                    //返回json数据解析
+                    if (jsonObject.containsKey("Table1")) {
+                        JSONArray transitListArray = jsonObject.getJSONArray("Table1");
+                        for (int i = 0; i < transitListArray.size(); i++) {
+                            System.out.println(transitListArray.get(i));
+                            Map<String,Object> innerMap = new HashMap<String,Object>();
+                            JSONObject obj = JSONObject.fromObject(transitListArray.get(i));
+                            Iterator it = obj.entrySet().iterator();
+                            while(it.hasNext()){
+                                Map.Entry entry = (Map.Entry) it.next();
+                                innerMap.put(entry.getKey()+"",entry.getValue());
+                            }
+                            dataList.add(innerMap);
+                        }
+                    }
+                }
+            }*/
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        System.out.println("===============================");
+
+/*
+        renderJson(dataList);
+*/
+    }
+    @PostMapping("/error")
+    @ApiOperation(value = "错误码提取")
+    public void getPerInfoError(String code){
+
+        List<Map<String, Object>> dataList = new ArrayList<Map<String, Object>>();
+        try{
+            // 指出service所在URL
+            String method = "GetErrTxt";
+            String endpoint = "http://10.201.1.3:8081/ThirdWebservice.asmx";
+            String targetNamespace = "http://www.hzsun.com/";
+
+            // 创建一个服务(service)调用(call)
+            Service service = new Service();
+            Call call = (Call) service.createCall();// 通过service创建call对象
+            // 设置service所在URL
+            call.setTargetEndpointAddress(new java.net.URL(endpoint));
+            call.setOperationName(new QName(targetNamespace, method));
+            call.setUseSOAPAction(true);
+            call.setSOAPActionURI(targetNamespace+method);
+
+            call.addParameter(new QName(targetNamespace,"sErrCode"), Constants.XSD_STRING, ParameterMode.IN);
+
+            call.setReturnType(XMLType.XSD_STRING);
+            //请求对应接口 并加入请求参数
+            Object ret = call.invoke(new Object[] {code});
+            System.out.println("ret========="+ret);
+            Map out = call.getOutputParams();
+            System.out.println("out======"+out);
+
+           /* if (out!=null) {
+                Iterator ite = out.values().iterator();
+                System.out.println("ite============="+ite);
+                while (ite.hasNext()) {
+                     //System.out.println("-------------"+(String)ite.next());
+                    //JSONObject jsonObject = JSONObject.fromObject((String)ite.next());
+                    JSONObject jsonObject = JSONObject.parseObject((String)ite.next());
+                    System.out.println("jsb===================="+jsonObject);
+                    //返回json数据解析
+                    if (jsonObject.containsKey("Table1")) {
+                        JSONArray transitListArray = jsonObject.getJSONArray("Table1");
+                        for (int i = 0; i < transitListArray.size(); i++) {
+                            System.out.println(transitListArray.get(i));
+                            Map<String,Object> innerMap = new HashMap<String,Object>();
+                            JSONObject obj = JSONObject.fromObject(transitListArray.get(i));
+                            Iterator it = obj.entrySet().iterator();
+                            while(it.hasNext()){
+                                Map.Entry entry = (Map.Entry) it.next();
+                                innerMap.put(entry.getKey()+"",entry.getValue());
+                            }
+                            dataList.add(innerMap);
+                        }
+                    }
+                }
+            }*/
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        System.out.println("===============================");
+
+/*
+        renderJson(dataList);
+*/
     }
 }
