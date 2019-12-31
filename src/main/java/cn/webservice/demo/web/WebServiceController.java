@@ -258,10 +258,10 @@ public class WebServiceController {
             //请求对应接口 并加入请求参数
             Object ret = call.invoke(new Object[] {code});
             System.out.println("ret========="+ret);
-            Map out = call.getOutputParams();
+            Map<String,Object> out = call.getOutputParams();
             System.out.println("out======"+out);
-
-       /*     if (out!=null) {
+/*
+            if (out!=null) {
                 Iterator ite = out.values().iterator();
                 System.out.println("ite============="+ite);
                 while (ite.hasNext()) {
