@@ -4,10 +4,10 @@ import javax.xml.bind.annotation.XmlRootElement;
 
 //正元接口返回信息实体
 @XmlRootElement(name = "QrCode")
-public class QrCode {
+public class ZYEntity {
 
     private String sPerCode; //个人编号
-    private Integer nCardID; //卡号
+    private String nCardID; //卡号
     private Integer nAccNum; //账号
     private String sAccName; //姓名
     private String sDealerName; //商户名
@@ -26,11 +26,11 @@ public class QrCode {
         this.sPerCode = sPerCode;
     }
 
-    public Integer getnCardID() {
+    public String getnCardID() {
         return nCardID;
     }
 
-    public void setnCardID(Integer nCardID) {
+    public void setnCardID(String nCardID) {
         this.nCardID = nCardID;
     }
 
@@ -104,5 +104,22 @@ public class QrCode {
 
     public void setsRectime(String sRectime) {
         this.sRectime = sRectime;
+    }
+
+    @Override
+    public String toString() {
+        return "ZYEntity{" +
+                "sPerCode='" + sPerCode + '\'' +
+                ", nCardID=" + nCardID +
+                ", nAccNum=" + nAccNum +
+                ", sAccName='" + sAccName + '\'' +
+                ", sDealerName='" + sDealerName + '\'' +
+                ", nMonDeal=" + nMonDeal +
+                ", nMonDealCur=" + nMonDealCur +
+                ", nConcessionsMon=" + nConcessionsMon +
+                ", nConsumeMgFee=" + nConsumeMgFee +
+                ", sDealTime='" + sDealTime + '\'' +
+                ", sRectime='" + sRectime + '\'' +
+                '}';
     }
 }

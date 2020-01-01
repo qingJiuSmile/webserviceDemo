@@ -1,8 +1,7 @@
 package cn.webservice.demo.web;
 
-import cn.webservice.demo.entity.QrCode;
+import cn.webservice.demo.entity.ZYEntity;
 import cn.webservice.demo.entity.User;
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
@@ -14,16 +13,13 @@ import org.apache.axis.client.Service;
 import org.apache.axis.message.SOAPHeaderElement;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.jaxrs.client.WebClient;
-import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.jaxws.endpoint.dynamic.JaxWsDynamicClientFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.remoting.jaxws.JaxWsPortProxyFactoryBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.ws.rs.POST;
 import javax.ws.rs.core.MediaType;
 import javax.xml.namespace.QName;
 import javax.xml.rpc.ParameterMode;
@@ -77,7 +73,7 @@ public class WebServiceController {
 
     @GetMapping("/getData")
     @ApiOperation(value = "测试调用接口")
-    public QrCode getData(String path, String key, String name) {
+    public ZYEntity getData(String path, String key, String name) {
         //调用webservice获取查询数据
         System.out.println("path:"+path+"?"+key+"="+name);
      String data = WebClient
@@ -233,14 +229,11 @@ public class WebServiceController {
     }
 
 
-
+    //获取二维码中的信息(需请求头)
     public void getPerInfo(Map<String,String> map,String code){
-
-        List<Map<String, Object>> dataList = new ArrayList<Map<String, Object>>();
         try{
             // 指出service所在URL
             String method = "GetPerInfo";
-
             // 创建一个服务(service)调用(call)
             Service service = new Service();
             Call call = (Call) service.createCall();// 通过service创建call对象
@@ -251,49 +244,26 @@ public class WebServiceController {
             call.setSOAPActionURI(map.get("targetNamespace")+method);
             SOAPHeaderElement head = getHoapHeader(map);  //添加加密头验证加密因子
             call.addHeader(head);
-
             call.addParameter(new QName(map.get("targetNamespace"),"sQRCode"), Constants.XSD_STRING, ParameterMode.IN);
-
             call.setReturnType(XMLType.XSD_STRING);
             //请求对应接口 并加入请求参数
             Object ret = call.invoke(new Object[] {code});
             System.out.println("ret========="+ret);
             Map<String,Object> out = call.getOutputParams();
             System.out.println("out======"+out);
-/*
-            if (out!=null) {
-                Iterator ite = out.values().iterator();
-                System.out.println("ite============="+ite);
-                while (ite.hasNext()) {
-                     //System.out.println("-------------"+(String)ite.next());
-                    //JSONObject jsonObject = JSONObject.fromObject((String)ite.next());
-                    JSONObject jsonObject = JSONObject.parseObject((String)ite.next());
-                    System.out.println("jsb===================="+jsonObject);
-                    //返回json数据解析
-                    if (jsonObject.containsKey("Table1")) {
-                        JSONArray transitListArray = jsonObject.getJSONArray("Table1");
-                        for (int i = 0; i < transitListArray.size(); i++) {
-                            System.out.println(transitListArray.get(i));
-                            Map<String,Object> innerMap = new HashMap<String,Object>();
-                            JSONObject obj = JSONObject.fromObject(transitListArray.get(i));
-                            Iterator it = obj.entrySet().iterator();
-                            while(it.hasNext()){
-                                Map.Entry entry = (Map.Entry) it.next();
-                                innerMap.put(entry.getKey()+"",entry.getValue());
-                            }
-                            dataList.add(innerMap);
-                        }
-                    }
-                }
-            }*/
+            String returnData; //返回的json集合数据
+            //判断请求是否有返回数据
+            if (out!= null) {
+                //将返回的json变为list集合并取出对应所需数据
+                returnData = out.get("sJsonData").toString();
+                JSONObject jsonObject  = JSONObject.parseObject(returnData);
+                List<ZYEntity> ls = JSONArray.parseArray(jsonObject.getString("Table1"),ZYEntity.class);
+                //根据文档返回参数得知，返回的数据集合只有一列下标故选0
+                System.out.println(ls.get(0));
+            }
         }catch(Exception e){
             e.printStackTrace();
         }
-        System.out.println("===============================");
-
-/*
-        renderJson(dataList);
-*/
     }
     @PostMapping("/error")
     @ApiOperation(value = "错误码提取")
@@ -324,31 +294,6 @@ public class WebServiceController {
             Map out = call.getOutputParams();
             System.out.println("out======"+out);
 
-           /* if (out!=null) {
-                Iterator ite = out.values().iterator();
-                System.out.println("ite============="+ite);
-                while (ite.hasNext()) {
-                     //System.out.println("-------------"+(String)ite.next());
-                    //JSONObject jsonObject = JSONObject.fromObject((String)ite.next());
-                    JSONObject jsonObject = JSONObject.parseObject((String)ite.next());
-                    System.out.println("jsb===================="+jsonObject);
-                    //返回json数据解析
-                    if (jsonObject.containsKey("Table1")) {
-                        JSONArray transitListArray = jsonObject.getJSONArray("Table1");
-                        for (int i = 0; i < transitListArray.size(); i++) {
-                            System.out.println(transitListArray.get(i));
-                            Map<String,Object> innerMap = new HashMap<String,Object>();
-                            JSONObject obj = JSONObject.fromObject(transitListArray.get(i));
-                            Iterator it = obj.entrySet().iterator();
-                            while(it.hasNext()){
-                                Map.Entry entry = (Map.Entry) it.next();
-                                innerMap.put(entry.getKey()+"",entry.getValue());
-                            }
-                            dataList.add(innerMap);
-                        }
-                    }
-                }
-            }*/
         }catch(Exception e){
             e.printStackTrace();
         }
